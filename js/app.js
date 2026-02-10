@@ -1,5 +1,9 @@
+import { Soundfont } from "https://unpkg.com/smplr/dist/index.mjs";
+
 async function setup() {
     const patchExportURL = "export/patch.export.json";
+
+
 
     // Create AudioContext
     const WAContext = window.AudioContext || window.webkitAudioContext;
@@ -89,6 +93,11 @@ async function setup() {
     // (Optional) Connect MIDI inputs
     makeMIDIKeyboard(device);
 
+    FetchData(device);
+
+    handleMidi(device);
+
+
     document.body.onclick = () => {
         context.resume();
     }
@@ -150,6 +159,7 @@ function makeSliders(device) {
         slider.setAttribute("type", "range");
         slider.setAttribute("class", "param-slider");
         slider.setAttribute("id", param.id);
+        console.log(param.id)
         slider.setAttribute("name", param.name);
         slider.setAttribute("min", param.min);
         slider.setAttribute("max", param.max);
@@ -334,6 +344,64 @@ function makeMIDIKeyboard(device) {
 
         mdiv.appendChild(key);
     });
+}
+
+function FetchData(device) {
+fetch('https://eyes.nasa.gov/dsn/data/dsn.json')
+  .then(response => response.json()) // Parse the response body as JSON
+  .then(data => {
+    const param = device.parametersById.get("Antenna1Status");
+    var i = 0;
+    for(const dish in data.dishes){
+      i++;
+      if(i == 2){
+        var counter = 1;
+        for(const sig in data.dishes[dish].sigs){
+            if(data.dishes[dish].sigs[sig].active == true){
+                
+                 console.log(data.dishes[dish].sigs[sig].dir)    
+                if(data.dishes[dish].sigs[sig].dir == "up"){
+                    counter = counter + 1;
+                } else{
+                    counter = counter + 2;
+                }
+            }
+        }
+        console.log(counter);
+        param.value = counter;
+      }
+      //console.log("antenna" + dish)
+      //console.log(data.dishes[dish].desc)
+      //for(const sig in data.dishes[dish].sigs){
+        //if(data.dishes[dish].sigs[sig].active == true){
+        //}
+      //}
+    }
+  }) // Work with the parsed data
+  .catch(error => console.error('Error fetching data:', error)); // Handle network errors
+}
+
+async function handleMidi(device) {
+// ev is of type MIDIEvent
+
+const smplr = await import('https://unpkg.com/smplr/dist/index.mjs');
+const SoundFont = smplr.SoundFont
+const context = new AudioContext();
+const marimba = new Soundfont(context, { instrument: "marimba" });
+device.midiEvent.subscribe((ev) => {
+
+    FetchData(device)
+    // Handle the outgoing MIDIEvent
+    let type = ev.data[0];
+
+    // Test for note on
+    if (type >> 4 === 9) {
+        let pitch = ev.data[1];
+        let velocity = ev.data[2];
+        console.log(`Received MIDI note on with pitch ${pitch} and velocity ${velocity}`);
+        marimba.start({ note: pitch, velocity: velocity });
+    }
+});
 }
 
 setup();
