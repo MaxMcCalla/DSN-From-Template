@@ -82,20 +82,19 @@ async function setup() {
     makeSliders(device);
 
     // (Optional) Create a form to send messages to RNBO inputs
-    makeInportForm(device);
+    //makeInportForm(device);
 
     // (Optional) Attach listeners to outports so you can log messages from the RNBO patcher
-    attachOutports(device);
+    //attachOutports(device);
 
     // (Optional) Load presets, if any
-    loadPresets(device, patcher);
-
-    // (Optional) Connect MIDI inputs
-    makeMIDIKeyboard(device);
+    //loadPresets(device, patcher);
 
     FetchData(device);
 
     handleMidi(device);
+
+    HandleFetches(device);
 
 
     document.body.onclick = () => {
@@ -295,81 +294,33 @@ function loadPresets(device, patcher) {
     presetSelect.onchange = () => device.setPreset(presets[presetSelect.value].preset);
 }
 
-function makeMIDIKeyboard(device) {
-    let mdiv = document.getElementById("rnbo-clickable-keyboard");
-    if (device.numMIDIInputPorts === 0) return;
-
-    mdiv.removeChild(document.getElementById("no-midi-label"));
-
-    const midiNotes = [49, 52, 56, 63];
-    midiNotes.forEach(note => {
-        const key = document.createElement("div");
-        const label = document.createElement("p");
-        label.textContent = note;
-        key.appendChild(label);
-        key.addEventListener("pointerdown", () => {
-            let midiChannel = 0;
-
-            // Format a MIDI message paylaod, this constructs a MIDI on event
-            let noteOnMessage = [
-                144 + midiChannel, // Code for a note on: 10010000 & midi channel (0-15)
-                note, // MIDI Note
-                100 // MIDI Velocity
-            ];
-        
-            let noteOffMessage = [
-                128 + midiChannel, // Code for a note off: 10000000 & midi channel (0-15)
-                note, // MIDI Note
-                0 // MIDI Velocity
-            ];
-        
-            // Including rnbo.min.js (or the unminified rnbo.js) will add the RNBO object
-            // to the global namespace. This includes the TimeNow constant as well as
-            // the MIDIEvent constructor.
-            let midiPort = 0;
-            let noteDurationMs = 250;
-        
-            // When scheduling an event to occur in the future, use the current audio context time
-            // multiplied by 1000 (converting seconds to milliseconds) for now.
-            let noteOnEvent = new RNBO.MIDIEvent(device.context.currentTime * 1000, midiPort, noteOnMessage);
-            let noteOffEvent = new RNBO.MIDIEvent(device.context.currentTime * 1000 + noteDurationMs, midiPort, noteOffMessage);
-        
-            device.scheduleEvent(noteOnEvent);
-            device.scheduleEvent(noteOffEvent);
-
-            key.classList.add("clicked");
-        });
-
-        key.addEventListener("pointerup", () => key.classList.remove("clicked"));
-
-        mdiv.appendChild(key);
-    });
-}
-
 function FetchData(device) {
+    TODO:"Change the Data source to xml"
 fetch('https://eyes.nasa.gov/dsn/data/dsn.json')
   .then(response => response.json()) // Parse the response body as JSON
   .then(data => {
-    const param = device.parametersById.get("Antenna1Status");
+    var param = device.parametersById.get("Antenna1Status");
     var i = 0;
     for(const dish in data.dishes){
       i++;
-      if(i == 2){
-        var counter = 1;
-        for(const sig in data.dishes[dish].sigs){
-            if(data.dishes[dish].sigs[sig].active == true){
-                
-                 console.log(data.dishes[dish].sigs[sig].dir)    
-                if(data.dishes[dish].sigs[sig].dir == "up"){
-                    counter = counter + 1;
-                } else{
-                    counter = counter + 2;
+        if(i < 15){
+            param=device.parametersById.get("Antenna" + i + "Status");
+            var counter = 1;
+            for(const sig in data.dishes[dish].sigs){
+                if(data.dishes[dish].sigs[sig].active == true){
+                    
+                    console.log(data.dishes[dish].sigs[sig].dir)    
+                    if(data.dishes[dish].sigs[sig].dir == "up"){
+                        counter = counter + 1;
+                    } else{
+                        counter = counter + 2;
+                    }
                 }
             }
+        
+            console.log(counter);
+            param.value = counter;
         }
-        console.log(counter);
-        param.value = counter;
-      }
       //console.log("antenna" + dish)
       //console.log(data.dishes[dish].desc)
       //for(const sig in data.dishes[dish].sigs){
@@ -387,21 +338,30 @@ async function handleMidi(device) {
 const smplr = await import('https://unpkg.com/smplr/dist/index.mjs');
 const SoundFont = smplr.SoundFont
 const context = new AudioContext();
-const marimba = new Soundfont(context, { instrument: "marimba" });
+const instrument = new Soundfont(context, { instrument: "lead_3_calliope" });
 device.midiEvent.subscribe((ev) => {
-
-    FetchData(device)
     // Handle the outgoing MIDIEvent
     let type = ev.data[0];
 
     // Test for note on
     if (type >> 4 === 9) {
-        let pitch = ev.data[1];
-        let velocity = ev.data[2];
-        console.log(`Received MIDI note on with pitch ${pitch} and velocity ${velocity}`);
-        marimba.start({ note: pitch, velocity: velocity });
+        if(ev.data[2] > 0){
+            let pitch = ev.data[1];
+            let velocity = ev.data[2];
+            console.log(`Received MIDI note on with pitch ${pitch} and velocity ${velocity}`);
+            instrument.start({ note: pitch, velocity: velocity, duration:0.2 });
+        }
     }
 });
+}
+
+function HandleFetches(device){
+    device.messageEvent.subscribe((ev) => {
+        if(ev.tag === "out1"){
+            FetchData(device);
+        }
+    }
+    )
 }
 
 setup();
