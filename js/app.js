@@ -1,5 +1,58 @@
 import { Soundfont } from "https://unpkg.com/smplr/dist/index.mjs";
 
+var xmldata = [];
+var dishNames = [];
+var dishAngles = [];
+var dishStatuses = [];
+var dishDownloads = [];
+var dishUploads = [];
+var currentDish = -1;
+
+function parseXML(xml, device){
+    var nodes = xml.childNodes
+    if(nodes.length == 0){
+        return false
+    }
+    for(var i = 0; i < nodes.length; i++){
+        var node = nodes[i];
+        switch( node.nodeName){
+            case "dsn": 
+                parseXML(node, device);
+            break;
+            case "dish":
+                currentDish++;
+                dishNames[currentDish] = node.getAttribute("name");
+                dishAngles[currentDish] = node.getAttribute("azimuthAngle");
+                dishStatuses[currentDish] = 1;
+                dishUploads[currentDish] = false;
+                dishDownloads[currentDish] = false;
+                console.log("found dish " + node.getAttribute("name") + " as dish " + currentDish);
+                parseXML(node, device);
+            break;
+            case "upSignal":
+                console.log("signal is " + node.getAttribute("active"))
+                if(node.getAttribute("active") === 'true' && (!dishUploads[currentDish] === true)){
+                    dishStatuses[currentDish] += 1;
+                    dishUploads[currentDish] = true;
+                    console.log("dish " + dishNames[currentDish] + " status set to " + dishStatuses[currentDish]);
+                }
+            break;
+            case "downSignal":
+                console.log("signal is " + node.getAttribute("active"))
+                if(node.getAttribute("active") === 'true' && (!dishDownloads[currentDish] === true)){
+                    dishStatuses[currentDish] += 2;
+                    dishDownloads[currentDish] = true;
+                    console.log("dish " + dishNames[currentDish] + " status set to " + dishStatuses[currentDish]);
+                }
+            break;
+            default:
+            break;
+
+        }
+
+    }
+}
+
 async function setup() {
     const patchExportURL = "export/patch.export.json";
 
@@ -296,7 +349,27 @@ function loadPresets(device, patcher) {
 
 function FetchData(device) {
     TODO:"Change the Data source to xml"
-fetch('https://eyes.nasa.gov/dsn/data/dsn.json')
+
+		var request = new XMLHttpRequest ();
+		request.open("GET", "https://eyes.nasa.gov/dsn/data/dsn.xml", true);
+		request.onreadystatechange = function ()
+		{
+			if (request.readyState == 4 && (request.status == 200 || request.status == 0))
+			{
+                var xml = $.parseXML(request.responseText);
+                currentDish = -1;
+				parseXML(xml, device);
+                console.log(dishStatuses);
+                for(var dishes = 0; dishes <= currentDish; dishes++){
+                    var setting = "Antenna" + (dishes+1) + "Status";
+                    //console.log(setting);
+                    var param = device.parametersById.get(setting);
+                    param.value = dishStatuses[dishes];
+                }
+			}
+		}
+		request.send();
+/*fetch('https://eyes.nasa.gov/dsn/data/dsn.json')
   .then(response => response.json()) // Parse the response body as JSON
   .then(data => {
     var param = device.parametersById.get("Antenna1Status");
@@ -308,7 +381,6 @@ fetch('https://eyes.nasa.gov/dsn/data/dsn.json')
             var counter = 1;
             for(const sig in data.dishes[dish].sigs){
                 if(data.dishes[dish].sigs[sig].active == true){
-                    
                     console.log(data.dishes[dish].sigs[sig].dir)    
                     if(data.dishes[dish].sigs[sig].dir == "up"){
                         counter = counter + 1;
@@ -330,6 +402,7 @@ fetch('https://eyes.nasa.gov/dsn/data/dsn.json')
     }
   }) // Work with the parsed data
   .catch(error => console.error('Error fetching data:', error)); // Handle network errors
+  */
 }
 
 async function handleMidi(device) {
