@@ -1,5 +1,3 @@
-import { Soundfont } from "https://unpkg.com/smplr/dist/index.mjs";
-
 var xmldata = [];
 var dishNames = [];
 var dishAngles = [];
@@ -47,17 +45,11 @@ function parseXML(xml, device){
             break;
             default:
             break;
-
         }
-
     }
 }
 
 async function setup() {
-    const patchExportURL = "export/patch.export.json";
-
-
-
     // Create AudioContext
     const WAContext = window.AudioContext || window.webkitAudioContext;
     const context = new WAContext();
@@ -65,98 +57,74 @@ async function setup() {
     // Create gain node and connect it to audio output
     const outputNode = context.createGain();
     outputNode.connect(context.destination);
-    
-    // Fetch the exported patcher
-    let response, patcher;
-    try {
-        response = await fetch(patchExportURL);
-        patcher = await response.json();
-    
-        if (!window.RNBO) {
-            // Load RNBO script dynamically
-            // Note that you can skip this by knowing the RNBO version of your patch
-            // beforehand and just include it using a <script> tag
-            await loadRNBOScript(patcher.desc.meta.rnboversion);
-        }
-
-    } catch (err) {
-        const errorContext = {
-            error: err
-        };
-        if (response && (response.status >= 300 || response.status < 200)) {
-            errorContext.header = `Couldn't load patcher export bundle`,
-            errorContext.description = `Check app.js to see what file it's trying to load. Currently it's` +
-            ` trying to load "${patchExportURL}". If that doesn't` + 
-            ` match the name of the file you exported from RNBO, modify` + 
-            ` patchExportURL in app.js.`;
-        }
-        if (typeof guardrails === "function") {
-            guardrails(errorContext);
-        } else {
-            throw err;
-        }
-        return;
-    }
-    
-    // (Optional) Fetch the dependencies
-    let dependencies = [];
-    try {
-        const dependenciesResponse = await fetch("export/dependencies.json");
-        dependencies = await dependenciesResponse.json();
-
-        // Prepend "export" to any file dependenciies
-        dependencies = dependencies.map(d => d.file ? Object.assign({}, d, { file: "export/" + d.file }) : d);
-    } catch (e) {}
-
-    // Create the device
-    let device;
-    try {
-        device = await RNBO.createDevice({ context, patcher });
-    } catch (err) {
-        if (typeof guardrails === "function") {
-            guardrails({ error: err });
-        } else {
-            throw err;
-        }
-        return;
-    }
-
-    // (Optional) Load the samples
-    if (dependencies.length)
-        await device.loadDataBufferDependencies(dependencies);
-
-    // Connect the device to the web audio graph
-    device.node.connect(outputNode);
-
-    // (Optional) Extract the name and rnbo version of the patcher from the description
-    document.getElementById("patcher-title").innerText = (patcher.desc.meta.filename || "Unnamed Patcher") + " (v" + patcher.desc.meta.rnboversion + ")";
-
-    // (Optional) Automatically create sliders for the device parameters
-    makeSliders(device);
-
-    // (Optional) Create a form to send messages to RNBO inputs
-    //makeInportForm(device);
-
-    // (Optional) Attach listeners to outports so you can log messages from the RNBO patcher
-    //attachOutports(device);
-
-    // (Optional) Load presets, if any
-    //loadPresets(device, patcher);
-
-    FetchData(device);
-
-    handleMidi(device);
-
-    HandleFetches(device);
-
 
     document.body.onclick = () => {
         context.resume();
     }
 
-    // Skip if you're not using guardrails.js
-    if (typeof guardrails === "function")
-        guardrails();
+    const antennaPatchURL = "export/midipatch.export.json";
+    const synthPatchURL = "export/poli-container.export.json";
+
+    if (!window.RNBO) {
+        // Load RNBO script dynamically
+        // Note that you can skip this by knowing the RNBO version of your patch
+        // beforehand and just include it using a <script> tag
+        await loadRNBOScript("1.4.2");
+    }
+    // Fetch the exported patcher
+    const response = await fetch(antennaPatchURL);
+    const antennaPatcher = await response.json();
+    const antennaPatcher2 = antennaPatcher;
+
+    console.log(antennaPatcher);
+
+    // Create the device
+        // Create the device
+    const antenna1 = await RNBO.createDevice({ context, patcher: antennaPatcher });
+    const antenna2 = await RNBO.createDevice({ context, patcher: antennaPatcher });
+    const antenna3 = await RNBO.createDevice({ context, patcher: antennaPatcher });
+    const antenna4 = await RNBO.createDevice({ context, patcher: antennaPatcher });
+    const antenna5 = await RNBO.createDevice({ context, patcher: antennaPatcher });
+    const antenna6 = await RNBO.createDevice({ context, patcher: antennaPatcher });
+    const antenna7 = await RNBO.createDevice({ context, patcher: antennaPatcher });
+    const antenna8 = await RNBO.createDevice({ context, patcher: antennaPatcher });
+    const antenna9 = await RNBO.createDevice({ context, patcher: antennaPatcher });
+    const antenna10 = await RNBO.createDevice({ context, patcher: antennaPatcher });
+    const antenna11 = await RNBO.createDevice({ context, patcher: antennaPatcher });
+    const antenna12 = await RNBO.createDevice({ context, patcher: antennaPatcher });
+    const antenna13 = await RNBO.createDevice({ context, patcher: antennaPatcher });
+    const antenna14 = await RNBO.createDevice({ context, patcher: antennaPatcher });
+    const antennas = [antenna1, antenna2, antenna3, antenna4, antenna5, antenna6, antenna7, antenna8,
+                     antenna9, antenna10, antenna11, antenna12, antenna13, antenna14];
+    
+    
+    const synthResponse = await fetch(synthPatchURL);
+    const synthPatcher = await synthResponse.json();
+    const synth = await RNBO.createDevice({ context, patcher: synthPatcher });
+
+    synth.node.connect(outputNode);
+
+//    document.getElementById("patcher-title").innerText = (patcher.desc.meta.filename || "Unnamed Patcher") + " (v" + patcher.desc.meta.rnboversion + ")";
+
+    //makeSliders(device);
+
+    FetchData(antennas);
+
+//    handleMidi(antenna1);
+
+    HandleFetches(antennas,antenna1);
+    antennas.forEach((a,index) => {
+        a.midiEvent.subscribe((ev) => {
+            console.log("midi");
+            synth.scheduleEvent(ev);
+        });
+    })
+
+    const event1 = new RNBO.MessageEvent(RNBO.TimeNow, "in1", [ 1 ]);
+    antennas.forEach((a,index) => {
+        a.scheduleEvent(event1);
+    })
+
 }
 
 function loadRNBOScript(version) {
@@ -348,7 +316,8 @@ function loadPresets(device, patcher) {
 }
 
 function FetchData(device) {
-    TODO:"Change the Data source to xml"
+    const antennas = device;
+    var currentAntenna;
 
 		var request = new XMLHttpRequest ();
 		request.open("GET", "https://eyes.nasa.gov/dsn/data/dsn.xml", true);
@@ -361,48 +330,20 @@ function FetchData(device) {
 				parseXML(xml, device);
                 console.log(dishStatuses);
                 for(var dishes = 0; dishes <= currentDish; dishes++){
-                    var setting = "Antenna" + (dishes+1) + "Status";
-                    //console.log(setting);
-                    var param = device.parametersById.get(setting);
+                    currentAntenna = antennas[dishes];
+                    var setting = "AntennaAngle";
+                    var param = currentAntenna.parametersById.get(setting);
+                    param.value = dishAngles[dishes];
+                    setting = "AntennaNumber";
+                    param = currentAntenna.parametersById.get(setting);
+                    param.value = dishes+1;
+                    setting = "AntennaStatus";
+                    param = currentAntenna.parametersById.get(setting);
                     param.value = dishStatuses[dishes];
                 }
 			}
 		}
 		request.send();
-/*fetch('https://eyes.nasa.gov/dsn/data/dsn.json')
-  .then(response => response.json()) // Parse the response body as JSON
-  .then(data => {
-    var param = device.parametersById.get("Antenna1Status");
-    var i = 0;
-    for(const dish in data.dishes){
-      i++;
-        if(i < 15){
-            param=device.parametersById.get("Antenna" + i + "Status");
-            var counter = 1;
-            for(const sig in data.dishes[dish].sigs){
-                if(data.dishes[dish].sigs[sig].active == true){
-                    console.log(data.dishes[dish].sigs[sig].dir)    
-                    if(data.dishes[dish].sigs[sig].dir == "up"){
-                        counter = counter + 1;
-                    } else{
-                        counter = counter + 2;
-                    }
-                }
-            }
-        
-            console.log(counter);
-            param.value = counter;
-        }
-      //console.log("antenna" + dish)
-      //console.log(data.dishes[dish].desc)
-      //for(const sig in data.dishes[dish].sigs){
-        //if(data.dishes[dish].sigs[sig].active == true){
-        //}
-      //}
-    }
-  }) // Work with the parsed data
-  .catch(error => console.error('Error fetching data:', error)); // Handle network errors
-  */
 }
 
 async function handleMidi(device) {
@@ -428,13 +369,14 @@ device.midiEvent.subscribe((ev) => {
 });
 }
 
-function HandleFetches(device){
+function HandleFetches(antennas, device){
     device.messageEvent.subscribe((ev) => {
         if(ev.tag === "out1"){
-            FetchData(device);
+            FetchData(antennas);
         }
     }
     )
 }
+
 
 setup();
