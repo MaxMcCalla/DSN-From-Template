@@ -5,6 +5,7 @@ var dishStatuses = [];
 var dishDownloads = [];
 var dishUploads = [];
 var currentDish = -1;
+import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
 
 function parseXML(xml, device){
     var nodes = xml.childNodes
@@ -373,6 +374,12 @@ function HandleFetches(antennas, device){
     device.messageEvent.subscribe((ev) => {
         if(ev.tag === "out1"){
             FetchData(antennas);
+            d3.select("#arc1")
+            .datum({startAngle:0, endAngle: 0.1})
+            .transition()
+                .ease(d3.easeLinear)
+                .duration(2000)
+                .attrTween("d", arcTween(tau+0.1));
         }
     }
     )
@@ -380,3 +387,60 @@ function HandleFetches(antennas, device){
 
 
 setup();
+
+
+//d3
+console.log(d3);
+  const width = 300;
+  const height = Math.min(500, width / 2);
+  const outerRadius = height / 2 - 10;
+  const innerRadius = outerRadius * 0.75;
+
+   // https://tauday.com/tau-manifesto
+  const tau = 2 * Math.PI;
+
+  // Create the SVG container, and apply a transform such that the origin is the
+  // center of the canvas. This way, we don’t need to position arcs individually.
+  const svg = d3.create("svg")
+      .attr("viewBox", [0, 0, width, height]);
+  const g = svg.append("g").attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
+
+  // An arc function with all values bound except the endAngle. So, to compute an
+  // SVG path string for a given angle, we pass an object with an endAngle
+  // property to the arc function, and it will return the corresponding string.
+  const arc = d3.arc()
+        .innerRadius(innerRadius)
+        .outerRadius(outerRadius)
+
+  // Add the background arc, from 0 to 100% (tau).
+  const background = g.append("path")
+        .datum({startAngle: 0,endAngle:tau})
+        .style("fill", "#ddd")
+        .attr("d", arc);
+  
+  // Add the foreground arc in orange, currently showing 12.7%.
+  const foreground = g.append("path")
+        .attr("id","arc1")
+        .datum({startAngle: 0,endAngle: 0.1})
+        .style("fill", "orange")
+        .attr("d", arc);
+
+    viz.append(svg.node());
+    // Every so often, start a transition to a new random angle. The attrTween
+  // definition is encapsulated in a separate function (a closure) below.
+  // Stop the interval when this block of code updates
+  //invalidation.then(() => interval.stop());
+
+  // Returns a tween for a transition’s "d" attribute, transitioning any selected
+  // arcs from their current angle to the specified new angle.
+  function arcTween(newAngle) {
+    return function(d) {
+      const interpolate = d3.interpolate(d.endAngle, newAngle);
+      return function(t) {
+      
+        d.endAngle = interpolate(t);
+        d.startAngle = d.endAngle-0.1;
+        return arc(d);
+      };
+    };
+  }
