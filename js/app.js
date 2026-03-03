@@ -25,23 +25,23 @@ function parseXML(xml, device){
                 dishStatuses[currentDish] = 1;
                 dishUploads[currentDish] = false;
                 dishDownloads[currentDish] = false;
-                console.log("found dish " + node.getAttribute("name") + " as dish " + currentDish);
+                //console.log("found dish " + node.getAttribute("name") + " as dish " + currentDish);
                 parseXML(node, device);
             break;
             case "upSignal":
-                console.log("signal is " + node.getAttribute("active"))
+                //console.log("signal is " + node.getAttribute("active"))
                 if(node.getAttribute("active") === 'true' && (!dishUploads[currentDish] === true)){
                     dishStatuses[currentDish] += 1;
                     dishUploads[currentDish] = true;
-                    console.log("dish " + dishNames[currentDish] + " status set to " + dishStatuses[currentDish]);
+                    //console.log("dish " + dishNames[currentDish] + " status set to " + dishStatuses[currentDish]);
                 }
             break;
             case "downSignal":
-                console.log("signal is " + node.getAttribute("active"))
+                //console.log("signal is " + node.getAttribute("active"))
                 if(node.getAttribute("active") === 'true' && (!dishDownloads[currentDish] === true)){
                     dishStatuses[currentDish] += 2;
                     dishDownloads[currentDish] = true;
-                    console.log("dish " + dishNames[currentDish] + " status set to " + dishStatuses[currentDish]);
+                    //console.log("dish " + dishNames[currentDish] + " status set to " + dishStatuses[currentDish]);
                 }
             break;
             default:
@@ -77,7 +77,7 @@ async function setup() {
     const antennaPatcher = await response.json();
     const antennaPatcher2 = antennaPatcher;
 
-    console.log(antennaPatcher);
+    //console.log(antennaPatcher);
 
     // Create the device
         // Create the device
@@ -116,7 +116,7 @@ async function setup() {
     HandleFetches(antennas,antenna1);
     antennas.forEach((a,index) => {
         a.midiEvent.subscribe((ev) => {
-            console.log("midi");
+            //console.log("midi");
             synth.scheduleEvent(ev);
         });
     })
@@ -292,7 +292,7 @@ function attachOutports(device) {
         if (outports.findIndex(elt => elt.tag === ev.tag) < 0) return;
 
         // Message events have a tag as well as a payload
-        console.log(`${ev.tag}: ${ev.payload}`);
+        //console.log(`${ev.tag}: ${ev.payload}`);
 
         document.getElementById("rnbo-console-readout").innerText = `${ev.tag}: ${ev.payload}`;
     });
@@ -329,7 +329,7 @@ function FetchData(device) {
                 var xml = $.parseXML(request.responseText);
                 currentDish = -1;
 				parseXML(xml, device);
-                console.log(dishStatuses);
+                //console.log(dishStatuses);
                 for(var dishes = 0; dishes <= currentDish; dishes++){
                     currentAntenna = antennas[dishes];
                     var setting = "AntennaAngle";
@@ -363,7 +363,7 @@ device.midiEvent.subscribe((ev) => {
         if(ev.data[2] > 0){
             let pitch = ev.data[1];
             let velocity = ev.data[2];
-            console.log(`Received MIDI note on with pitch ${pitch} and velocity ${velocity}`);
+            //console.log(`Received MIDI note on with pitch ${pitch} and velocity ${velocity}`);
             instrument.start({ note: pitch, velocity: velocity, duration:0.2 });
         }
     }
@@ -374,6 +374,42 @@ function HandleFetches(antennas, device){
     device.messageEvent.subscribe((ev) => {
         if(ev.tag === "out1"){
             FetchData(antennas);
+            var circledata = []
+            d3.selectAll("#circles").remove();
+            for(var i = 0; i <= currentDish; i++){
+                circledata.push({id:dishNames[i],angle:dishAngles[i],visible:dishStatuses[i]>1})
+            }
+            const width = 300;
+            const height = Math.min(500, width / 2);
+
+            var g = svg.append("g");
+            
+            g.attr("transform", "translate(" + width / 2 + "," + height / 2 + ")")
+            .attr("id","circles")
+            .selectAll("circle")
+                .data(circledata)
+                .enter()
+                .append("circle")
+                    .attr("cx", (d) => Math.sin(Math.PI*d.angle/180)*57)
+                    .attr("cy", (d) => Math.cos(Math.PI*d.angle/180)*57)
+                    .attr("r", 5)
+                    .attr("visibility",(d) => d.visible === true? "visible" : "hidden")
+                    .attr("fill", "black");
+
+            g.selectAll("text")
+                .data(circledata)
+                .enter()
+                .append("text")
+                    .attr("x", (d) => Math.sin(Math.PI*d.angle/180)*57)
+                    .attr("y", (d) => Math.cos(Math.PI*d.angle/180)*57-10)
+                    .attr("visibility",(d) => d.visible === true? "visible" : "hidden")
+                    .text((d) => d.id)
+                    .attr("font-size",5)
+                    .attr("text-anchor","middle")
+                    .attr("fill","blue")
+                    .attr("stroke","aqua")
+                    .attr("stroke-width",0.1);
+
             d3.select("#arc1")
             .datum({startAngle:0, endAngle: 0.1})
             .transition()
@@ -405,6 +441,8 @@ console.log(d3);
       .attr("viewBox", [0, 0, width, height]);
   const g = svg.append("g").attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
 
+
+  
   // An arc function with all values bound except the endAngle. So, to compute an
   // SVG path string for a given angle, we pass an object with an endAngle
   // property to the arc function, and it will return the corresponding string.
@@ -413,6 +451,13 @@ console.log(d3);
         .outerRadius(outerRadius)
 
   // Add the background arc, from 0 to 100% (tau).
+  g.append("rect")
+  .attr("x",-width/2)
+  .attr("y",-height/2)
+  .attr("width",width)
+  .attr("height",height)
+  .attr("fill","black");
+
   const background = g.append("path")
         .datum({startAngle: 0,endAngle:tau})
         .style("fill", "#ddd")
